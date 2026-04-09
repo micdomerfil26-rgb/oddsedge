@@ -1,25 +1,182 @@
-const express = require('express');
-const fetch = require('node-fetch');
-const path = require('path');
-const app = express();
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OddsEdge — Polymarket vs DraftKings</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root { --bg:#0a0a0f;--surface:#111118;--surface2:#1a1a24;--border:rgba(255,255,255,0.08);--border2:rgba(255,255,255,0.14);--text:#e8e8f0;--muted:#6b6b80;--accent:#00e5a0;--warn:#f59e0b;--danger:#ef4444;--dk:#f97316;--mono:'Space Mono',monospace;--sans:'DM Sans',sans-serif; }
+  *{box-sizing:border-box;margin:0;padding:0}body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px;min-height:100vh}
+  header{display:flex;align-items:center;justify-content:space-between;padding:1rem 1.5rem;border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;background:rgba(10,10,15,0.95);backdrop-filter:blur(12px)}
+  .logo{display:flex;align-items:center;gap:10px;font-family:var(--mono);font-size:16px;font-weight:700}
+  .logo-mark{width:28px;height:28px;border-radius:6px;background:var(--accent);display:flex;align-items:center;justify-content:center}
+  .logo-mark svg{width:16px;height:16px}
+  .live-badge{display:flex;align-items:center;gap:5px;font-family:var(--mono);font-size:11px;color:var(--accent);border:1px solid rgba(0,229,160,0.3);padding:4px 10px;border-radius:4px}
+  .live-dot{width:6px;height:6px;border-radius:50%;background:var(--accent);animation:pulse 1.5s ease-in-out infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+  .api-bar{background:var(--surface);border-bottom:1px solid var(--border);padding:.75rem 1.5rem;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .api-bar label{font-size:12px;color:var(--muted);font-family:var(--mono);white-space:nowrap}
+  .api-bar input{flex:1;min-width:200px;background:var(--surface2);border:1px solid var(--border2);color:var(--text);font-family:var(--mono);font-size:12px;padding:7px 12px;border-radius:6px;outline:none;transition:border-color .2s}
+  .api-bar input:focus{border-color:var(--accent)}.api-bar input::placeholder{color:var(--muted)}
+  .btn-fetch{background:var(--accent);color:#000;font-family:var(--mono);font-size:12px;font-weight:700;padding:8px 18px;border-radius:6px;border:none;cursor:pointer;white-space:nowrap;transition:opacity .15s,transform .1s}
+  .btn-fetch:hover{opacity:.88}.btn-fetch:active{transform:scale(.97)}.btn-fetch:disabled{opacity:.4;cursor:not-allowed}
+  .api-status{font-size:11px;font-family:var(--mono);white-space:nowrap}.api-status.ok{color:var(--accent)}.api-status.err{color:var(--danger)}.api-status.loading{color:var(--warn)}
+  .legend{display:flex;align-items:center;gap:16px;padding:.6rem 1.5rem;border-bottom:1px solid var(--border);background:var(--surface);font-size:11px;font-family:var(--mono);color:var(--muted);flex-wrap:wrap}
+  .legend-item{display:flex;align-items:center;gap:5px}.dot{width:8px;height:8px;border-radius:50%}
+  .metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border);border-bottom:1px solid var(--border)}
+  .metric{background:var(--surface);padding:1.1rem 1.5rem}
+  .metric-label{font-size:11px;color:var(--muted);font-family:var(--mono);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+  .metric-value{font-size:26px;font-family:var(--mono);font-weight:700;line-height:1}.metric-value.green{color:var(--accent)}
+  .metric-sub{font-size:11px;color:var(--muted);margin-top:4px}
+  .filters{padding:.85rem 1.5rem;display:flex;align-items:center;gap:10px;flex-wrap:wrap;border-bottom:1px solid var(--border);background:var(--surface)}
+  .filter-label{font-size:11px;color:var(--muted);font-family:var(--mono)}
+  .chip{font-size:12px;padding:4px 12px;border-radius:4px;border:1px solid var(--border2);background:transparent;color:var(--muted);cursor:pointer;font-family:var(--mono);transition:all .15s}
+  .chip:hover{border-color:rgba(0,229,160,.4);color:var(--text)}.chip.active{border-color:var(--accent);color:var(--accent);background:rgba(0,229,160,.08)}
+  .divider{width:1px;height:20px;background:var(--border2)}
+  .edge-filter{display:flex;align-items:center;gap:8px;margin-left:auto}
+  .edge-filter label{font-size:11px;color:var(--muted);font-family:var(--mono)}
+  .edge-filter input[type=range]{width:120px;accent-color:var(--accent)}
+  .edge-val{font-size:13px;font-family:var(--mono);color:var(--accent);min-width:36px}
+  .sort-bar{display:flex;align-items:center;gap:16px;padding:.6rem 1.5rem;border-bottom:1px solid var(--border);background:var(--bg)}
+  .sort-bar span{font-size:11px;color:var(--muted);font-family:var(--mono)}
+  .sort-btn{font-size:11px;color:var(--muted);font-family:var(--mono);cursor:pointer;background:none;border:none;padding:2px 6px;border-radius:3px}
+  .sort-btn.active{color:var(--accent)}.result-count{margin-left:auto;font-size:11px;color:var(--muted);font-family:var(--mono)}
+  .bet-list{padding:1rem 1.5rem;display:flex;flex-direction:column;gap:8px}
+  .bet-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:.9rem 1.1rem;display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;transition:border-color .15s,background .15s}
+  .bet-card:hover{border-color:var(--border2);background:var(--surface2)}
+  .bet-card.edge-high{border-left:3px solid var(--accent)}.bet-card.edge-mid{border-left:3px solid var(--warn)}.bet-card.edge-low{border-left:3px solid var(--muted)}
+  .sport-badge{width:36px;height:36px;border-radius:6px;background:var(--surface2);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;font-size:18px}
+  .bet-info{min-width:0}
+  .bet-match{font-size:14px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .bet-meta{font-size:12px;color:var(--muted);margin-top:2px}.bet-meta strong{color:rgba(255,255,255,.7);font-weight:500}
+  .bet-odds{font-size:12px;color:var(--muted);margin-top:5px;font-family:var(--mono);display:flex;gap:12px;flex-wrap:wrap}
+  .odd-block{display:flex;flex-direction:column;gap:1px}.odd-label{font-size:10px;color:var(--muted)}.odd-val{font-size:13px}
+  .odd-val.pm{color:var(--accent)}.odd-val.dk{color:var(--dk)}.odd-val.fair{color:var(--text)}
+  .bet-right{text-align:right;white-space:nowrap}
+  .edge-tag{font-family:var(--mono);font-size:16px;font-weight:700;display:block}.edge-tag.green{color:var(--accent)}.edge-tag.amber{color:var(--warn)}.edge-tag.gray{color:var(--muted)}
+  .market-tag{font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:3px}
+  .state-box{text-align:center;padding:3rem 1.5rem}.state-box p{color:var(--muted);font-size:14px;line-height:1.7}
+  .state-box code{font-family:var(--mono);font-size:12px;background:var(--surface2);padding:2px 6px;border-radius:3px;color:var(--accent)}
+  .spinner{display:inline-block;width:20px;height:20px;border:2px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;margin-bottom:12px}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  footer{padding:1rem 1.5rem;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+  footer span{font-size:11px;color:var(--muted);font-family:var(--mono)}
+  @media(max-width:600px){.metrics{grid-template-columns:repeat(2,1fr)}.edge-filter{margin-left:0;width:100%}}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo"><div class="logo-mark"><svg viewBox="0 0 16 16" fill="none"><path d="M3 8L7 12L13 4" stroke="#000" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>OddsEdge</div>
+  <div class="live-badge"><div class="live-dot"></div>LIVE</div>
+</header>
+<div class="api-bar">
+  <label>API KEY:</label>
+  <input type="password" id="api-key" placeholder="Cole sua chave da odds-api.io..."/>
+  <button class="btn-fetch" id="btn-fetch" onclick="fetchAll()">▶ BUSCAR</button>
+  <span class="api-status" id="api-status"></span>
+</div>
+<div class="legend">
+  <span>Lógica:</span>
+  <div class="legend-item"><div class="dot" style="background:var(--dk)"></div><span style="color:var(--dk)">DraftKings</span> = casa mãe → fair odds</div>
+  <div class="legend-item"><div class="dot" style="background:var(--accent)"></div><span style="color:var(--accent)">Polymarket</span> acima da fair = value bet</div>
+  <div class="legend-item">Edge = (Poly / Fair - 1) × 100</div>
+</div>
+<div class="metrics">
+  <div class="metric"><div class="metric-label">Value bets</div><div class="metric-value green" id="m-count">—</div><div class="metric-sub" id="m-time">aguardando busca</div></div>
+  <div class="metric"><div class="metric-label">Maior edge</div><div class="metric-value green" id="m-top">—</div><div class="metric-sub" id="m-top-sub">—</div></div>
+  <div class="metric"><div class="metric-label">Edge médio</div><div class="metric-value" id="m-avg">—</div><div class="metric-sub">Poly vs DraftKings fair</div></div>
+  <div class="metric"><div class="metric-label">Ligas ativas</div><div class="metric-value" id="m-leagues">—</div><div class="metric-sub">de 15 monitoradas</div></div>
+</div>
+<div class="filters">
+  <span class="filter-label">ESPORTE:</span>
+  <button class="chip active" onclick="setSport('Todos',this)">Todos</button>
+  <button class="chip" onclick="setSport('Basketball',this)">Basketball</button>
+  <button class="chip" onclick="setSport('Futebol',this)">Futebol</button>
+  <button class="chip" onclick="setSport('E-sports',this)">E-sports</button>
+  <button class="chip" onclick="setSport('Tênis',this)">Tênis</button>
+  <button class="chip" onclick="setSport('Outros',this)">Outros</button>
+  <div class="divider"></div>
+  <div class="edge-filter">
+    <label>EDGE MÍN:</label>
+    <input type="range" min="0" max="10" step="0.5" value="0" id="edge-slider" oninput="setEdge(this.value)">
+    <span class="edge-val" id="edge-out">0%</span>
+  </div>
+</div>
+<div class="sort-bar">
+  <span>ORDENAR:</span>
+  <button class="sort-btn active" onclick="setSort('edge',this)">Edge ↓</button>
+  <button class="sort-btn" onclick="setSort('odd',this)">Odd Poly</button>
+  <button class="sort-btn" onclick="setSort('league',this)">Liga</button>
+  <span class="result-count" id="result-count"></span>
+</div>
+<div id="bet-list" class="bet-list">
+  <div class="state-box">
+    <p>Cole sua chave da <code>odds-api.io</code> e clique em <strong>BUSCAR</strong>.<br>
+    Vamos calcular as fair odds da <strong style="color:var(--dk)">DraftKings</strong> e encontrar onde a <strong style="color:var(--accent)">Polymarket</strong> está pagando mais.</p>
+  </div>
+</div>
+<footer>
+  <span id="footer-left">OddsEdge — DraftKings fair vs Polymarket</span>
+  <span>odds-api.io · 5000 req/hora</span>
+</footer>
+<script>
+const LEAGUES=[{league:"nba",name:"NBA",sport:"Basketball",icon:"🏀"},{league:"nfl",name:"NFL",sport:"Outros",icon:"🏈"},{league:"nhl",name:"NHL",sport:"Outros",icon:"🏒"},{league:"mlb",name:"MLB",sport:"Outros",icon:"⚾"},{league:"premier-league",name:"Premier League",sport:"Futebol",icon:"⚽"},{league:"la-liga",name:"La Liga",sport:"Futebol",icon:"⚽"},{league:"serie-a",name:"Serie A",sport:"Futebol",icon:"⚽"},{league:"bundesliga",name:"Bundesliga",sport:"Futebol",icon:"⚽"},{league:"ligue-1",name:"Ligue 1",sport:"Futebol",icon:"⚽"},{league:"champions-league",name:"Champions",sport:"Futebol",icon:"⚽"},{league:"atp",name:"ATP",sport:"Tênis",icon:"🎾"},{league:"wta",name:"WTA",sport:"Tênis",icon:"🎾"},{league:"lol",name:"League of Legends",sport:"E-sports",icon:"🎮"},{league:"cs",name:"CS2",sport:"E-sports",icon:"🎮"},{league:"valorant",name:"Valorant",sport:"E-sports",icon:"🎮"}];
+let allBets=[],currentSport='Todos',minEdge=0,sortBy='edge';
+async function fetchAll(){
+  const key=document.getElementById('api-key').value.trim();
+  if(!key){setStatus('Cole sua API key primeiro','err');return;}
+  const btn=document.getElementById('btn-fetch');
+  btn.disabled=true;btn.textContent='⏳ BUSCANDO...';
+  setStatus('Comparando DraftKings vs Polymarket...','loading');showLoading();
+  const results=[];
+  await Promise.all(LEAGUES.map(async lg=>{
+    try{
+      const r=await fetch(`/api/compare?apiKey=${key}&league=${lg.league}`);
+      const data=await r.json();
+      if(data.ok&&data.opportunities?.length)data.opportunities.forEach(o=>results.push({...o,leagueName:lg.name,sport:lg.sport,icon:lg.icon}));
+    }catch(e){console.warn('Erro em',lg.league,e.message);}
+  }));
+  const seen=new Set();
+  allBets=results.filter(b=>{const k=`${b.league}-${b.home}-${b.away}-${b.market}-${b.side}`;if(seen.has(k))return false;seen.add(k);return true;});
+  allBets.sort((a,b)=>b.edge-a.edge);
+  setStatus(allBets.length?`${allBets.length} value bets encontradas`:'Nenhuma value bet encontrada',allBets.length?'ok':'err');
+  updateMetrics();render();
+  const now=new Date().toLocaleTimeString('pt-BR');
+  document.getElementById('m-time').textContent=`atualizado às ${now}`;
+  document.getElementById('footer-left').textContent=`Última busca: ${now} · ${LEAGUES.length} ligas`;
+  btn.disabled=false;btn.textContent='▶ BUSCAR';
+}
+function setStatus(msg,type){const el=document.getElementById('api-status');el.textContent=msg;el.className='api-status '+type;}
+function showLoading(){document.getElementById('bet-list').innerHTML=`<div class="state-box"><div class="spinner"></div><p>Calculando fair odds da DraftKings e comparando com Polymarket...<br><span style="font-size:12px;font-family:var(--mono);color:var(--muted)">${LEAGUES.length} ligas · odds-api.io</span></p></div>`;}
+function getFiltered(){return allBets.filter(b=>(currentSport==='Todos'||b.sport===currentSport)&&b.edge>=minEdge).sort((a,b)=>sortBy==='edge'?b.edge-a.edge:sortBy==='odd'?b.pmOdd-a.pmOdd:a.leagueName.localeCompare(b.leagueName));}
+function updateMetrics(){
+  const f=getFiltered();
+  document.getElementById('m-count').textContent=f.length;
+  if(f.length>0){
+    const top=f[0];
+    document.getElementById('m-top').textContent='+'+top.edge.toFixed(1)+'%';
+    document.getElementById('m-top-sub').textContent=top.leagueName+' · '+top.team;
+    document.getElementById('m-avg').textContent=(f.reduce((s,b)=>s+b.edge,0)/f.length).toFixed(1)+'%';
+    document.getElementById('m-leagues').textContent=new Set(f.map(b=>b.leagueName)).size;
+  }else{['m-top','m-avg','m-leagues'].forEach(id=>document.getElementById(id).textContent='—');document.getElementById('m-top-sub').textContent='—';}
+}
+function render(){
+  const f=getFiltered();
+  document.getElementById('result-count').textContent=f.length+' apostas';
+  const list=document.getElementById('bet-list');
+  if(!allBets.length)return;
+  if(!f.length){list.innerHTML='<div class="state-box"><p>Nenhuma aposta com esses filtros.</p></div>';return;}
+  list.innerHTML=f.map(b=>{
+    const cls=b.edge>=5?'edge-high':b.edge>=2.5?'edge-mid':'edge-low';
+    const tagCls=b.edge>=5?'green':b.edge>=2.5?'amber':'gray';
+    return`<div class="bet-card ${cls}"><div class="sport-badge">${b.icon}</div><div class="bet-info"><div class="bet-match">${b.home} vs ${b.away}</div><div class="bet-meta">${b.leagueName} · ${b.market} · Apostar em: <strong>${b.team}</strong></div><div class="bet-odds"><div class="odd-block"><div class="odd-label">POLYMARKET</div><div class="odd-val pm">${b.pmOdd.toFixed(2)}</div></div><div class="odd-block"><div class="odd-label">DRAFTKINGS</div><div class="odd-val dk">${b.dkOdd?b.dkOdd.toFixed(2):'—'}</div></div><div class="odd-block"><div class="odd-label">FAIR ODD</div><div class="odd-val fair">${b.fairOdd.toFixed(2)}</div></div><div class="odd-block"><div class="odd-label">JUICE DK</div><div class="odd-val" style="color:var(--muted)">${b.juice.toFixed(1)}%</div></div></div></div><div class="bet-right"><span class="edge-tag ${tagCls}">+${b.edge.toFixed(1)}%</span><div class="market-tag">POLY > FAIR</div></div></div>`;
+  }).join('');
+}
+function setSport(s,el){currentSport=s;document.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));el.classList.add('active');updateMetrics();render();}
+function setEdge(v){minEdge=parseFloat(v);document.getElementById('edge-out').textContent=v+'%';updateMetrics();render();}
+function setSort(s,el){sortBy=s;document.querySelectorAll('.sort-btn').forEach(b=>b.classList.remove('active'));el.classList.add('active');render();}
+</script>
+</body>
+</html>
 
-app.use(express.static(path.join(__dirname, 'public')));
-
-app.get('/api/value-bets', async (req, res) => {
-  const { apiKey, bookmaker, league } = req.query;
-  try {
-    const url = `https://api.odds-api.io/v3/value-bets?apiKey=${apiKey}&bookmaker=${bookmaker}&league=${league}&minExpectedValue=0`;
-    const r = await fetch(url);
-    const data = await r.json();
-    res.json(data);
-  } catch(e) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
-
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log('Servidor rodando na porta ' + PORT));
