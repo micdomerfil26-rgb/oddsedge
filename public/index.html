@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OddsEdge — Comparador Polymarket</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #111118;
+    --surface2: #1a1a24;
+    --border: rgba(255,255,255,0.08);
+    --border2: rgba(255,255,255,0.14);
+    --text: #e8e8f0;
+    --muted: #6b6b80;
+    --accent: #00e5a0;
+    --accent2: #00b87a;
+    --warn: #f59e0b;
+    --danger: #ef4444;
+    --mono: 'Space Mono', monospace;
+    --sans: 'DM Sans', sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 14px; min-height: 100vh; }
+
+  /* HEADER */
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid var(--border);
+    position: sticky; top: 0; z-index: 100;
+    background: rgba(10,10,15,0.92);
+    backdrop-filter: blur(12px);
+  }
+  .logo { display: flex; align-items: center; gap: 10px; font-family: var(--mono); font-size: 16px; font-weight: 700; letter-spacing: -0.5px; }
+  .logo-mark { width: 28px; height: 28px; border-radius: 6px; background: var(--accent); display: flex; align-items: center; justify-content: center; }
+  .logo-mark svg { width: 16px; height: 16px; }
+  .header-right { display: flex; align-items: center; gap: 10px; }
+  .live-badge { display: flex; align-items: center; gap: 5px; font-family: var(--mono); font-size: 11px; color: var(--accent); border: 1px solid rgba(0,229,160,0.3); padding: 4px 10px; border-radius: 4px; }
+  .live-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); animation: pulse 1.5s ease-in-out infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+  /* API CONFIG */
+  .api-bar {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0.75rem 1.5rem;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .api-bar label { font-size: 12px; color: var(--muted); font-family: var(--mono); white-space: nowrap; }
+  .api-bar input {
+    flex: 1; background: var(--surface2); border: 1px solid var(--border2);
+    color: var(--text); font-family: var(--mono); font-size: 12px;
+    padding: 7px 12px; border-radius: 6px; outline: none;
+    transition: border-color 0.2s;
+  }
+  .api-bar input:focus { border-color: var(--accent); }
+  .api-bar input::placeholder { color: var(--muted); }
+  .btn-fetch {
+    background: var(--accent); color: #000; font-family: var(--mono);
+    font-size: 12px; font-weight: 700; padding: 8px 16px; border-radius: 6px;
+    border: none; cursor: pointer; white-space: nowrap; transition: opacity 0.15s, transform 0.1s;
+  }
+  .btn-fetch:hover { opacity: 0.88; }
+  .btn-fetch:active { transform: scale(0.97); }
+  .btn-fetch:disabled { opacity: 0.4; cursor: not-allowed; }
+  .api-status { font-size: 11px; font-family: var(--mono); white-space: nowrap; }
+  .api-status.ok { color: var(--accent); }
+  .api-status.err { color: var(--danger); }
+  .api-status.loading { color: var(--warn); }
+
+  /* METRICS */
+  .metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--border); border-bottom: 1px solid var(--border); }
+  .metric { background: var(--surface); padding: 1.1rem 1.5rem; }
+  .metric-label { font-size: 11px; color: var(--muted); font-family: var(--mono); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+  .metric-value { font-size: 26px; font-family: var(--mono); font-weight: 700; line-height: 1; }
+  .metric-value.green { color: var(--accent); }
+  .metric-sub { font-size: 11px; color: var(--muted); margin-top: 4px; }
+
+  /* FILTERS */
+  .filters {
+    padding: 0.85rem 1.5rem;
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+  }
+  .filter-group { display: flex; gap: 6px; align-items: center; }
+  .filter-label { font-size: 11px; color: var(--muted); font-family: var(--mono); }
+  .chip {
+    font-size: 12px; padding: 4px 12px; border-radius: 4px;
+    border: 1px solid var(--border2); background: transparent;
+    color: var(--muted); cursor: pointer; font-family: var(--mono);
+    transition: all 0.15s;
+  }
+  .chip:hover { border-color: rgba(0,229,160,0.4); color: var(--text); }
+  .chip.active { border-color: var(--accent); color: var(--accent); background: rgba(0,229,160,0.08); }
+  .divider { width: 1px; height: 20px; background: var(--border2); }
+  .edge-filter { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+  .edge-filter label { font-size: 11px; color: var(--muted); font-family: var(--mono); }
+  .edge-filter input[type=range] { width: 120px; accent-color: var(--accent); }
+  .edge-val { font-size: 13px; font-family: var(--mono); color: var(--accent); min-width: 36px; }
+
+  /* SORT BAR */
+  .sort-bar {
+    display: flex; align-items: center; gap: 16px;
+    padding: 0.6rem 1.5rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg);
+  }
+  .sort-bar span { font-size: 11px; color: var(--muted); font-family: var(--mono); }
+  .sort-btn { font-size: 11px; color: var(--muted); font-family: var(--mono); cursor: pointer; background: none; border: none; padding: 2px 6px; border-radius: 3px; }
+  .sort-btn.active { color: var(--accent); }
+  .sort-btn:hover { color: var(--text); }
+  .result-count { margin-left: auto; font-size: 11px; color: var(--muted); font-family: var(--mono); }
+
+  /* BET LIST */
+  .bet-list { padding: 1rem 1.5rem; display: flex; flex-direction: column; gap: 8px; }
+  .bet-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.9rem 1.1rem;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 12px;
+    align-items: center;
+    transition: border-color 0.15s, background 0.15s;
+    cursor: default;
+  }
+  .bet-card:hover { border-color: var(--border2); background: var(--surface2); }
+  .bet-card.edge-high { border-left: 3px solid var(--accent); }
+  .bet-card.edge-mid  { border-left: 3px solid var(--warn); }
+  .bet-card.edge-low  { border-left: 3px solid var(--muted); }
+  .sport-badge { width: 36px; height: 36px; border-radius: 6px; background: var(--surface2); border: 1px solid var(--border2); display: flex; align-items: center; justify-content: center; font-size: 18px; }
+  .bet-info { min-width: 0; }
+  .bet-match { font-size: 14px; font-weight: 500; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bet-meta { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .bet-meta strong { color: rgba(255,255,255,0.6); font-weight: 400; }
+  .bet-odds { font-size: 12px; color: var(--muted); margin-top: 4px; font-family: var(--mono); }
+  .bet-odds span { color: var(--text); }
+  .bet-right { text-align: right; white-space: nowrap; }
+  .edge-tag { font-family: var(--mono); font-size: 15px; font-weight: 700; display: block; }
+  .edge-tag.green { color: var(--accent); }
+  .edge-tag.amber { color: var(--warn); }
+  .edge-tag.gray  { color: var(--muted); }
+  .market-tag { font-size: 11px; color: var(--muted); font-family: var(--mono); margin-top: 2px; }
+
+  /* EMPTY / ERROR / LOADING */
+  .state-box { text-align: center; padding: 3rem 1.5rem; }
+  .state-box .icon { font-size: 32px; margin-bottom: 12px; }
+  .state-box p { color: var(--muted); font-size: 14px; line-height: 1.6; }
+  .state-box code { font-family: var(--mono); font-size: 12px; background: var(--surface2); padding: 2px 6px; border-radius: 3px; color: var(--accent); }
+  .spinner { display: inline-block; width: 20px; height: 20px; border: 2px solid var(--border2); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; margin-bottom: 12px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* FOOTER */
+  footer { padding: 1rem 1.5rem; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+  footer span { font-size: 11px; color: var(--muted); font-family: var(--mono); }
+
+  @media (max-width: 600px) {
+    .metrics { grid-template-columns: repeat(2, 1fr); }
+    .edge-filter { margin-left: 0; width: 100%; }
+    .api-bar { flex-wrap: wrap; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-mark">
+      <svg viewBox="0 0 16 16" fill="none"><path d="M3 8L7 12L13 4" stroke="#000" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
+    OddsEdge
+  </div>
+  <div class="header-right">
+    <div class="live-badge"><div class="live-dot"></div>LIVE</div>
+  </div>
+</header>
+
+<div class="api-bar">
+  <label>API KEY:</label>
+  <input type="password" id="api-key" placeholder="Cole sua chave da odds-api.io aqui..." />
+  <select id="bookmaker" style="background:var(--surface2);border:1px solid var(--border2);color:var(--text);font-family:var(--mono);font-size:12px;padding:7px 10px;border-radius:6px;outline:none;cursor:pointer;">
+    <option value="Polymarket">Polymarket</option>
+    <option value="Betfair">Betfair</option>
+    <option value="Pinnacle">Pinnacle</option>
+  </select>
+  <button class="btn-fetch" id="btn-fetch" onclick="fetchBets()">▶ BUSCAR</button>
+  <span class="api-status" id="api-status"></span>
+</div>
+
+<div class="metrics">
+  <div class="metric">
+    <div class="metric-label">Oportunidades</div>
+    <div class="metric-value green" id="m-count">—</div>
+    <div class="metric-sub" id="m-time">aguardando busca</div>
+  </div>
+  <div class="metric">
+    <div class="metric-label">Maior edge</div>
+    <div class="metric-value green" id="m-top">—</div>
+    <div class="metric-sub" id="m-top-sub">—</div>
+  </div>
+  <div class="metric">
+    <div class="metric-label">Edge médio</div>
+    <div class="metric-value" id="m-avg">—</div>
+    <div class="metric-sub">todas as ligas</div>
+  </div>
+  <div class="metric">
+    <div class="metric-label">Ligas ativas</div>
+    <div class="metric-value" id="m-leagues">—</div>
+    <div class="metric-sub" id="m-leagues-sub">de 15 monitoradas</div>
+  </div>
+</div>
+
+<div class="filters">
+  <div class="filter-group">
+    <span class="filter-label">ESPORTE:</span>
+    <button class="chip active" onclick="setSport('Todos',this)">Todos</button>
+    <button class="chip" onclick="setSport('Basketball',this)">Basketball</button>
+    <button class="chip" onclick="setSport('Futebol',this)">Futebol</button>
+    <button class="chip" onclick="setSport('E-sports',this)">E-sports</button>
+    <button class="chip" onclick="setSport('Tênis',this)">Tênis</button>
+    <button class="chip" onclick="setSport('Outros',this)">Outros</button>
+  </div>
+  <div class="divider"></div>
+  <div class="edge-filter">
+    <label>EDGE MÍN:</label>
+    <input type="range" min="0" max="10" step="0.5" value="0" id="edge-slider" oninput="setEdge(this.value)">
+    <span class="edge-val" id="edge-out">0%</span>
+  </div>
+</div>
+
+<div class="sort-bar">
+  <span>ORDENAR:</span>
+  <button class="sort-btn active" id="sort-edge" onclick="setSort('edge',this)">Edge ↓</button>
+  <button class="sort-btn" id="sort-odd" onclick="setSort('odd',this)">Odd</button>
+  <button class="sort-btn" id="sort-league" onclick="setSort('league',this)">Liga</button>
+  <span class="result-count" id="result-count"></span>
+</div>
+
+<div id="bet-list" class="bet-list">
+  <div class="state-box">
+    <div class="icon">🔑</div>
+    <p>Cole sua chave da <code>odds-api.io</code> acima e clique em <strong>BUSCAR</strong>.<br>As value bets da Polymarket aparecerão aqui em tempo real.</p>
+  </div>
+</div>
+
+<footer>
+  <span id="footer-left">OddsEdge v1.0 — sem backend, 100% no browser</span>
+  <span id="footer-right">odds-api.io · 5000 req/hora</span>
+</footer>
+
+<script>
+const LEAGUES = [
+  { league:"nba",           name:"NBA",            sport:"Basketball", icon:"🏀" },
+  { league:"nfl",           name:"NFL",             sport:"Outros",     icon:"🏈" },
+  { league:"nhl",           name:"NHL",             sport:"Outros",     icon:"🏒" },
+  { league:"mlb",           name:"MLB",             sport:"Outros",     icon:"⚾" },
+  { league:"premier-league",name:"Premier League",  sport:"Futebol",    icon:"⚽" },
+  { league:"la-liga",       name:"La Liga",         sport:"Futebol",    icon:"⚽" },
+  { league:"serie-a",       name:"Serie A",         sport:"Futebol",    icon:"⚽" },
+  { league:"bundesliga",    name:"Bundesliga",      sport:"Futebol",    icon:"⚽" },
+  { league:"ligue-1",       name:"Ligue 1",         sport:"Futebol",    icon:"⚽" },
+  { league:"champions-league",name:"Champions",     sport:"Futebol",    icon:"⚽" },
+  { league:"atp",           name:"ATP",             sport:"Tênis",      icon:"🎾" },
+  { league:"wta",           name:"WTA",             sport:"Tênis",      icon:"🎾" },
+  { league:"lol",           name:"League of Legends",sport:"E-sports",  icon:"🎮" },
+  { league:"cs",            name:"CS2",             sport:"E-sports",   icon:"🎮" },
+  { league:"valorant",      name:"Valorant",        sport:"E-sports",   icon:"🎮" },
+];
+
+let allBets = [];
+let currentSport = 'Todos';
+let minEdge = 0;
+let sortBy = 'edge';
+
+function calculateFairOdds(homeOdd, awayOdd, drawOdd) {
+  const pH = 1/homeOdd, pA = 1/awayOdd, pD = drawOdd ? 1/drawOdd : 0;
+  const over = pH + pA + pD;
+  return { fairHome: over/pH, fairAway: over/pA, fairDraw: drawOdd ? over/pD : null, juice: ((over-1)/over)*100 };
+}
+
+async function fetchBets() {
+  const key = document.getElementById('api-key').value.trim();
+  const bm  = document.getElementById('bookmaker').value;
+  if (!key) { setStatus('Cole sua API key primeiro', 'err'); return; }
+
+  const btn = document.getElementById('btn-fetch');
+  btn.disabled = true;
+  btn.textContent = '⏳ BUSCANDO...';
+  setStatus('Conectando...', 'loading');
+  showLoading();
+
+  const results = [];
+  let leaguesHit = 0;
+
+  for (const lg of LEAGUES) {
+    try {
+      const url = `/api/value-bets?apiKey=${key}&bookmaker=${bm}&league=${lg.league}&minExpectedValue=0`;
+      const res = await fetch(url);
+      if (!res.ok) {
+        if (res.status === 401) { setStatus('API key inválida', 'err'); break; }
+        continue;
+      }
+      const data = await res.json();
+      const arr = Array.isArray(data) ? data : (data.data || data.valueBets || data.bets || []);
+      if (arr.length > 0) leaguesHit++;
+
+      for (const bet of arr) {
+        try {
+          const homeOdd = parseFloat(bet.bookmakerOdds?.home || bet.odds?.home || 0);
+          const awayOdd = parseFloat(bet.bookmakerOdds?.away || bet.odds?.away || 0);
+          const drawOdd = parseFloat(bet.bookmakerOdds?.draw || bet.odds?.draw || 0) || null;
+
+          if (homeOdd < 1.01 && awayOdd < 1.01) continue;
+
+          const fair = calculateFairOdds(homeOdd || 1.5, awayOdd || 1.5, drawOdd);
+          const betSide = bet.betSide || bet.side || 'home';
+          const bookOdd = betSide === 'away' ? awayOdd : (betSide === 'draw' ? drawOdd : homeOdd);
+          const fairOdd = betSide === 'away' ? fair.fairAway : (betSide === 'draw' ? fair.fairDraw : fair.fairHome);
+          if (!bookOdd || !fairOdd || fairOdd < 1.01) continue;
+
+          const edge = ((bookOdd / fairOdd) - 1) * 100;
+          const ev = bet.expectedValue || bet.ev || edge;
+
+          results.push({
+            id: bet.id || Math.random().toString(36).slice(2),
+            sport: lg.sport,
+            icon: lg.icon,
+            league: lg.name,
+            home: bet.event?.home || bet.home || bet.homeTeam || 'Time A',
+            away: bet.event?.away || bet.away || bet.awayTeam || 'Time B',
+            market: bet.market?.name || bet.marketType || 'Moneyline',
+            side: betSide,
+            bookOdd: parseFloat(bookOdd.toFixed(3)),
+            fairOdd: parseFloat(fairOdd.toFixed(3)),
+            juice: parseFloat(fair.juice.toFixed(2)),
+            edge: parseFloat(edge.toFixed(2)),
+            ev: parseFloat(ev.toFixed(2)),
+          });
+        } catch(e) {}
+      }
+    } catch(e) {
+      console.warn('Erro em', lg.league, e.message);
+    }
+  }
+
+  // dedup
+  const seen = new Set();
+  allBets = results.filter(b => {
+    const k = `${b.league}-${b.home}-${b.away}-${b.market}-${b.side}`;
+    if (seen.has(k)) return false;
+    seen.add(k); return true;
+  });
+
+  allBets.sort((a,b) => b.edge - a.edge);
+
+  if (allBets.length === 0) {
+    setStatus('Nenhuma oportunidade encontrada', 'err');
+  } else {
+    setStatus(`${allBets.length} oportunidades encontradas`, 'ok');
+  }
+
+  updateMetrics();
+  render();
+
+  const now = new Date().toLocaleTimeString('pt-BR');
+  document.getElementById('m-time').textContent = `atualizado às ${now}`;
+  document.getElementById('footer-left').textContent = `Última busca: ${now} · ${LEAGUES.length} ligas verificadas`;
+
+  btn.disabled = false;
+  btn.textContent = '▶ BUSCAR';
+}
+
+function setStatus(msg, type) {
+  const el = document.getElementById('api-status');
+  el.textContent = msg;
+  el.className = 'api-status ' + type;
+}
+
+function showLoading() {
+  document.getElementById('bet-list').innerHTML = `
+    <div class="state-box">
+      <div class="spinner"></div>
+      <p>Buscando value bets em ${LEAGUES.length} ligas...<br>
+      <span style="font-size:12px;font-family:var(--mono)">Polymarket · odds-api.io</span></p>
+    </div>`;
+}
+
+function updateMetrics() {
+  const filtered = getFiltered();
+  document.getElementById('m-count').textContent = filtered.length;
+  if (filtered.length > 0) {
+    const top = filtered[0];
+    document.getElementById('m-top').textContent = '+' + top.edge.toFixed(1) + '%';
+    document.getElementById('m-top-sub').textContent = top.league + ' · ' + top.market;
+    const avg = filtered.reduce((s,b) => s+b.edge, 0) / filtered.length;
+    document.getElementById('m-avg').textContent = avg.toFixed(1) + '%';
+    const leagues = new Set(filtered.map(b => b.league)).size;
+    document.getElementById('m-leagues').textContent = leagues;
+  } else {
+    document.getElementById('m-top').textContent = '—';
+    document.getElementById('m-top-sub').textContent = '—';
+    document.getElementById('m-avg').textContent = '—';
+    document.getElementById('m-leagues').textContent = '0';
+  }
+}
+
+function getFiltered() {
+  return allBets
+    .filter(b => (currentSport === 'Todos' || b.sport === currentSport) && b.edge >= minEdge)
+    .sort((a,b) => {
+      if (sortBy === 'edge') return b.edge - a.edge;
+      if (sortBy === 'odd')  return b.bookOdd - a.bookOdd;
+      if (sortBy === 'league') return a.league.localeCompare(b.league);
+      return 0;
+    });
+}
+
+function render() {
+  const filtered = getFiltered();
+  document.getElementById('result-count').textContent = filtered.length + ' apostas';
+  const list = document.getElementById('bet-list');
+
+  if (!allBets.length) return;
+  if (!filtered.length) {
+    list.innerHTML = `<div class="state-box"><p>Nenhuma aposta com esses filtros.<br>Tente reduzir o edge mínimo.</p></div>`;
+    return;
+  }
+
+  list.innerHTML = filtered.map(b => {
+    const cls = b.edge >= 5 ? 'edge-high' : b.edge >= 2.5 ? 'edge-mid' : 'edge-low';
+    const tagCls = b.edge >= 5 ? 'green' : b.edge >= 2.5 ? 'amber' : 'gray';
+    const sideLabel = b.side === 'home' ? b.home : (b.side === 'away' ? b.away : 'Empate');
+    return `
+    <div class="bet-card ${cls}">
+      <div class="sport-badge">${b.icon}</div>
+      <div class="bet-info">
+        <div class="bet-match">${b.home} vs ${b.away}</div>
+        <div class="bet-meta">${b.league} · ${b.market} · <strong>${sideLabel}</strong></div>
+        <div class="bet-odds">Odd: <span>${b.bookOdd.toFixed(2)}</span> &nbsp;|&nbsp; Fair: <span>${b.fairOdd.toFixed(2)}</span> &nbsp;|&nbsp; Juice: <span>${b.juice.toFixed(1)}%</span></div>
+      </div>
+      <div class="bet-right">
+        <span class="edge-tag ${tagCls}">+${b.edge.toFixed(1)}%</span>
+        <div class="market-tag">${b.market.toUpperCase()}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function setSport(s, el) {
+  currentSport = s;
+  document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  updateMetrics();
+  render();
+}
+
+function setEdge(v) {
+  minEdge = parseFloat(v);
+  document.getElementById('edge-out').textContent = v + '%';
+  updateMetrics();
+  render();
+}
+
+function setSort(s, el) {
+  sortBy = s;
+  document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  render();
+}
+</script>
+</body>
+</html>
